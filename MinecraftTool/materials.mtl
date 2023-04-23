@@ -1,0 +1,13 @@
+# Program materials
+newmtl dirt
+Kd 1.0 0.0 0.0
+
+newmtl stone
+Kd 0.0 1.0 0.0
+
+newmtl wood
+Kd 0.0 0.0 1.0
+
+newmtl glass
+Kd 1.0 1.0 1.0
+d 0.5
