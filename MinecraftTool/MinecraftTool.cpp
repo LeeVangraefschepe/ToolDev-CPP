@@ -1,13 +1,12 @@
-﻿#include <direct.h> // _getwcwd
+﻿#include <codecvt>
 #include <iostream>
 #include <fstream>
-#include <windows.h>
+#include <locale>
 #include <sstream>
 #include <vector>
+#include <memory>
 
-#include "rapidjson/rapidjson.h"
 #include "rapidjson/document.h"
-#include "rapidjson/stream.h"
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/istreamwrapper.h"
 
@@ -18,13 +17,16 @@ struct Vector3
 
 struct BlockData
 {
-	std::wstring name{};
-	bool isOpaque{};
+	BlockData(const std::wstring& pName, bool pIsOpaque) : name(pName), isOpaque(pIsOpaque)
+	{
+	}
+	const std::wstring name;
+	const bool isOpaque;
 };
 
 struct Block
 {
-	BlockData data; //Should be pointer later
+	std::shared_ptr<BlockData> data;
 	Vector3 position;
 };
 
@@ -35,61 +37,84 @@ void PrintHelp();
 
 void WriteBlock(FILE* pOFile, const Block& block, int id)
 {
-	auto x = block.position.x;
-	auto y = block.position.y;
-	auto z = block.position.z;
+	const auto x = block.position.x;
+	const auto y = block.position.y;
+	const auto z = block.position.z;
+	const bool isOpaque = block.data->isOpaque;
 
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 0.0 + x, 0.0 + y, 0.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 0.0 + x, 0.0 + y, 1.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 0.0 + x, 1.0 + y, 0.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 0.0 + x, 1.0 + y, 1.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 1.0 + x, 0.0 + y, 0.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 1.0 + x, 0.0 + y, 1.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 1.0 + x, 1.0 + y, 0.0f + z);
-	fwprintf_s(pOFile, L"v %.4f %.4f %.4f\n", 1.0 + x, 1.0 + y, 1.0f + z);
-
+	fwprintf_s(pOFile, L"v %d %d %d\n", 0 + x, 0 + y, 0 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 0 + x, 0 + y, 1 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 0 + x, 1 + y, 0 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 0 + x, 1 + y, 1 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 1 + x, 0 + y, 0 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 1 + x, 0 + y, 1 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 1 + x, 1 + y, 0 + z);
+	fwprintf_s(pOFile, L"v %d %d %d\n", 1 + x, 1 + y, 1 + z);
 
 	const int offset = id * 8;
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 2, 7 + offset, 2, 5 + offset, 2);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 2, 3 + offset, 2, 7 + offset, 2);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x && otherBlock.position.y == y && otherBlock.position.z == z - 1 && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 2, offset + 7, 2, offset + 5, 2);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 2, offset + 3, 2, offset + 7, 2);
+	}
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 6, 4 + offset, 6, 3 + offset, 6);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 6, 2 + offset, 6, 4 + offset, 6);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x - 1 && otherBlock.position.y == y && otherBlock.position.z == z && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 6, offset + 4, 6, offset + 3, 6);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 6, offset + 2, 6, offset + 4, 6);
+	}
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 3 + offset, 3, 8 + offset, 3, 7 + offset, 3);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 3 + offset, 3, 4 + offset, 3, 8 + offset, 3);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x && otherBlock.position.y == y + 1 && otherBlock.position.z == z && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 3, 3, offset + 8, 3, offset + 7, 3);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 3, 3, offset + 4, 3, offset + 8, 3);
+	}
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 5 + offset, 5, 7 + offset, 5, 8 + offset, 5);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 5 + offset, 5, 8 + offset, 5, 6 + offset, 5);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x + 1 && otherBlock.position.y == y && otherBlock.position.z == z && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 5, 5, offset + 7, 5, offset + 8, 5);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 5, 5, offset + 8, 5, offset + 6, 5);
+	}
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 4, 5 + offset, 4, 6 + offset, 4);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 1 + offset, 4, 6 + offset, 4, 2 + offset, 4);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x && otherBlock.position.y == y - 1 && otherBlock.position.z == z && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 4, offset + 5, 4, offset + 6, 4);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 1, 4, offset + 6, 4, offset + 2, 4);
+	}
 
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 2 + offset, 1, 6 + offset, 1, 8 + offset, 1);
-	fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", 2 + offset, 1, 8 + offset, 1, 4 + offset, 1);
+	if (!isOpaque || std::find_if(begin(g_Blocks), end(g_Blocks),
+		[&](const Block& otherBlock) { return otherBlock.position.x == x && otherBlock.position.y == y && otherBlock.position.z == z + 1 && otherBlock.data->isOpaque; })
+		== end(g_Blocks))
+	{
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 2, 1, offset + 6, 1, offset + 8, 1);
+		fwprintf_s(pOFile, L"f %d//%d %d//%d %d//%d\n", offset + 2, 1, offset + 8, 1, offset + 4, 1);
+	}
 }
 
 int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 {
 	std::wstring inputFile{};
 	std::wstring outputFile{};
-	HandleArgs(argc, argv, envp, inputFile, outputFile);
+	if (const int error = HandleArgs(argc, argv, envp, inputFile, outputFile) != 0)
+	{
+		return error;
+	}
 
 	std::wcout << "Input file: " << inputFile << "\n";
 	std::wcout << "Output file: " << outputFile << "\n";
 
-	FILE* pOFile = nullptr;
-	_wfopen_s(&pOFile, outputFile.c_str(), L"w+,ccs=UTF-8");
-	if (pOFile == nullptr)
-	{
-		return -1;
-	}
-
-
-	const wchar_t* text = L"#\nmtllib materials.mtl\n";
-	fwrite(text, wcslen(text) * sizeof(wchar_t), 1, pOFile);
-
+	//Read out Json
 	if (std::ifstream is{inputFile.c_str()})
 	{
 		using namespace rapidjson;
@@ -104,17 +129,17 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 				const Value& blockJson = *layerIt;
 				if (blockJson.HasMember("layer") && blockJson.HasMember("opaque") && blockJson.HasMember("positions"))
 				{
-					BlockData blockData{};
 
 					//Get name/layer
 					const Value& layer = blockJson["layer"];
 					std::wstringstream layerss{};
 					layerss << layer.GetString();
-					blockData.name = layerss.str();
 
 					//Get opaque
 					const Value& opaque = blockJson["opaque"];
-					blockData.isOpaque = opaque.GetBool();
+
+					//Create blockdata
+					auto blockData = std::make_shared<BlockData>(layerss.str(), opaque.GetBool());
 
 					//Get the array of block positions
 					const Value& positions = blockJson["positions"];
@@ -140,34 +165,64 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		}
 	}
 
+	//Create output file and open it
+	FILE* pOFile = nullptr;
+	_wfopen_s(&pOFile, outputFile.c_str(), L"w+,ccs=UTF-8");
+	if (pOFile == nullptr)
+	{
+		return -1;
+	}
+
+	//Write beginning
+	const wchar_t* text = L"#This tool is made by Lee Vangraefschepe\nmtllib materials.mtl\n";
+	fwrite(text, wcslen(text) * sizeof(wchar_t), 1, pOFile);
+
 	//Write the normals for every block one time
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", 0.0f, 0.0f, 1.0f);
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", 0.0f, 0.0f, -1.0f);
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", 0.0f, 1.0f, 0.0f);
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", 0.0f, -1.0f, 0.0f);
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", 1.0f, 0.0f, 0.0f);
-	fwprintf_s(pOFile, L"vn %.4f %.4f %.4f\n", -1.0f, 0.0f, 0.0f);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", 0, 0, 1);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", 0, 0, -1);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", 0, 1, 0);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", 0, -1, 0);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", 1, 0, 0);
+	fwprintf_s(pOFile, L"vn %d %d %d\n", -1, 0, 0);
 
 	const int size = static_cast<int>(g_Blocks.size());
-	auto prevData = BlockData{};
+	std::shared_ptr<BlockData> prevData = nullptr;
 	for (int i{}; i < size; ++i)
 	{
 		auto& block = g_Blocks[i];
 
 		//Write material if datatype changed
-		if (prevData.name != block.data.name)
+		if (prevData != block.data)
 		{
 			std::wstringstream material{};
-			material << L"usemtl " << block.data.name << L"\n";
+			material << L"usemtl " << block.data->name << L"\n";
 			auto materialStr = material.str();
 			fwrite(materialStr.c_str(), materialStr.size() * sizeof(wchar_t), 1, pOFile);
+			prevData = block.data;
 		}
 
 		//Write block
 		WriteBlock(pOFile, block, i);
 	}
-	
 	fclose(pOFile);
+
+
+	//Convert wstring to UTF-8 encoded string
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	std::string utf8_path = converter.to_bytes(outputFile);
+
+	//Execute the file
+	int result = std::system(utf8_path.c_str());
+
+	if (result == 0)
+	{
+		std::cout << "File executed successfully." << std::endl;
+	}
+	else
+	{
+		std::cout << "File execution failed." << std::endl;
+	}
+
 	return 0;
 }
 
@@ -217,5 +272,8 @@ int HandleArgs(int argc, wchar_t* argv[], wchar_t* envp[], std::wstring& inputFi
 
 void PrintHelp()
 {
-	
+	wprintf_s(L"Not the right amount of arguments.\n");
+	wprintf_s(L"Possible commands:\n");
+	wprintf_s(L"MinecraftJson -i (inputfile).json\n");
+	wprintf_s(L"MinecraftJson -i (inputfile).json -o (outputfile).obj\n");
 }
