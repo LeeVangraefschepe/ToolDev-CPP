@@ -1,7 +1,7 @@
 #Root cmake
 cmake_minimum_required(VERSION 3.22)
 
-Project(MinecraftTool)
+Project(MinecraftTool VERSION 1.0.0)
 
 add_subdirectory(ThirdPartyHeaderOnly)
 message("Include dir: ${ThirdPartyHeaderOnlyIncludeDir}")
@@ -28,6 +28,18 @@ ConsoleTool PUBLIC
 
 target_link_libraries(
 	ConsoleTool PUBLIC Parser
+)
+
+add_subdirectory("JUCE")
+add_subdirectory("JuceGUI")
+target_include_directories(
+MyJUCEApp PUBLIC
+"${CommonCodeIncludeDir}"
+"${ParserIncludeDir}"
+)
+
+target_link_libraries(
+	MyJUCEApp PUBLIC Parser
 )
 
 install(TARGETS ConsoleTool DESTINATION bin)

@@ -1,6 +1,5 @@
 #ThirdPartyHeaderOnly
 
-#Grab Json
 file(GLOB Headers "*.h")
 
 add_library(ThirdPartyHeaderOnly INTERFACE ${Headers})

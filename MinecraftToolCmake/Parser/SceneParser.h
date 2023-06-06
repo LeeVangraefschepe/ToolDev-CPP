@@ -7,6 +7,7 @@ class SceneParser final
 {
 public:
 	SceneParser(const std::wstring& path);
+	~SceneParser() = default;
 	SceneParser(const SceneParser& other) = delete;
 	SceneParser(SceneParser&& other) = delete;
 	SceneParser& operator=(const SceneParser& other) = delete;
